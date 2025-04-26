@@ -38,19 +38,10 @@ Before running the project, ensure you have the following installed:
 
 ## Usage
 
-1. Prepare your data:
-    - Place your documents in the `data/` directory or configure the data source in the code.
-
-2. Configure the agent:
-    - Modify the `config.yaml` file to set up retrieval and generation parameters.
-
-3. Run the RAG Agent:
+Run the RAG Agent using Streamlit:
     ```bash
-    python main.py
+    streamlit run app.py
     ```
-
-4. Interact with the agent:
-    - Use the provided API or CLI to query the agent.
 
 ## Environment Variables
 
