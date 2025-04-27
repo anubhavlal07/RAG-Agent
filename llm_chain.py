@@ -1,20 +1,16 @@
-from langchain_groq import ChatGroq  # Importing the Groq LLM integration
-from langchain.memory import ConversationBufferMemory  # Importing memory for conversation history
-from langchain.chains import ConversationalRetrievalChain  # Importing the conversational chain
-from config import get_groq_api_key, GROQ_MODEL_NAME  # Importing configuration utilities
+from langchain_groq import ChatGroq
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from config import get_groq_api_key, GROQ_MODEL_NAME
 
 def create_conversation_chain(vector_store):
-    groq_api_key = get_groq_api_key()  # Fetching the Groq API key from configuration
     llm = ChatGroq(
-        groq_api_key=groq_api_key,  # Setting the API key for the Groq LLM
-        model_name=GROQ_MODEL_NAME  # Specifying the Groq model name
+        groq_api_key=get_groq_api_key(),  # Initialize the ChatGroq LLM with API key and model name
+        model_name=GROQ_MODEL_NAME
     )
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",  # Key to store chat history in memory
-        return_messages=True  # Enable returning messages from memory
-    )
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)  # Store conversation history
     return ConversationalRetrievalChain.from_llm(
-        llm=llm,  # Using the Groq LLM
-        retriever=vector_store.as_retriever(),  # Setting the retriever from the vector store
-        memory=memory  # Attaching memory to the chain
+        llm=llm,
+        retriever=vector_store.as_retriever(),  # Use vector store as retriever
+        memory=memory
     )
