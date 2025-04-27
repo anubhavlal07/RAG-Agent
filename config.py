@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from a .env file
 
-PINECONE_INDEX_NAME = "rag-app-index"  # Name of the Pinecone index
+PINECONE_INDEX_NAME = "rag-agent"  # Name of the Pinecone index
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"  # Name of the embedding model
 EMBEDDING_MODEL_KWARGS = {'device': 'cpu'}  # Configuration for the embedding model
 CHUNK_SIZE = 1000  # Size of each text chunk
