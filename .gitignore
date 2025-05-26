@@ -6,7 +6,9 @@ __pycache__/
 # Virtual environments
 .venv/
 .env/
+env/
 environment/
+venv/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
@@ -21,3 +23,72 @@ environment/
 .DS_Store
 Thumbs.db
 .env
+
+# Python generated files
+migrations/
+resumes/
+
+# macOS system files
+.AppleDouble
+.LSOverride
+
+# Windows system files
+ehthumbs.db
+Desktop.ini
+
+# Test and coverage files
+.coverage
+.tox/
+.nox/
+.cache/
+pytest_cache/
+htmlcov/
+*.cover
+*.pyc
+*.pyo
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# PyInstaller
+*.spec
+
+# pipenv
+Pipfile.lock
+
+# Local settings
+local_settings.py
+
+# Temporary files
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig
+
+# IDEs
+.idea/
+*.iml
+
+# Jupyter Notebook hidden files
+*.nbconvert.ipynb
+
+# SQLite database files
+*.sqlite3
+*.db
+
+# Coverage reports
+coverage.xml
+
+# Sphinx documentation
+docs/_build/
