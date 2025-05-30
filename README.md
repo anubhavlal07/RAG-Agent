@@ -8,6 +8,15 @@ An intelligent HR chatbot that conducts initial screening interviews using Retri
 - Groq API key
 - `.env` file with your credentials
 
+**Sample `.env` file:**
+```
+GROQ_API_KEY=your_groq_api_key
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_pinecone_index_name
+PINECONE_ENVIRONMENT=your_pinecone_environment
+GROQ_MODEL_NAME=your_groq_model_name
+```
+
 ## **Installation**
 1. **Clone the repository:**
   ```bash
@@ -26,13 +35,7 @@ An intelligent HR chatbot that conducts initial screening interviews using Retri
   ```bash
   pip install -r requirements.txt
   ```
-4. **Create a `.env` file with your credentials:**
-  ```
-  GROQ_API_KEY=your_groq_api_key
-  PINECONE_API_KEY=your_pinecone_api_key
-  PINECONE_INDEX_NAME=hr-rag-sys
-  PINECONE_ENVIRONMENT=your_pinecone_environment
-  ```
+4. **Create a `.env` file with your credentials** (see sample above).
 
 ## **Running the Application**
 
@@ -42,6 +45,8 @@ If your workflow requires parsing resumes or documents, start the parser API:
 
 ```bash
 cd resumeparser
+python manage.py makemigrations
+python manage.py migrate
 python manage.py runserver
 ```
 
