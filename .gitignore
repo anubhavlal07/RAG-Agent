@@ -27,6 +27,7 @@ Thumbs.db
 # Python generated files
 migrations/
 resumes/
+conversations/
 
 # macOS system files
 .AppleDouble
