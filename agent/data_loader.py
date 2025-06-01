@@ -8,18 +8,18 @@ load_dotenv()
 # Toggle between Pinecone and Postgres via environment variable
 # True for Pinecone, False for Postgres
 # True and False are case-sensitive
-USE_PINECONE = os.getenv("USE_PINECONE")
+USE_PINECONE = os.getenv("USE_PINECONE", "true").lower() == "true"
 
 if USE_PINECONE:
     # ----- Pinecone Imports -----
     from pinecone import Pinecone
     from sentence_transformers import SentenceTransformer
-    from agent.config import PINECONE_INDEX_NAME
-
     PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+    PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "resumes-index")
     if not PINECONE_API_KEY:
         raise ValueError("PINECONE_API_KEY not found in environment.")
-
+    if not PINECONE_INDEX_NAME:
+        raise ValueError("PINECONE_INDEX_NAME not found in environment.")
     # Initialize Pinecone client and embedding model
     pc = Pinecone(api_key=PINECONE_API_KEY)
     index = pc.Index(PINECONE_INDEX_NAME)
@@ -59,6 +59,7 @@ def get_candidate_by_phone(raw_phone: str) -> dict:
     if USE_PINECONE:
         # ----- Pinecone-based lookup -----
         # Only pass the normalized last-10-digits to the model prompt
+        print("Using Pinecone for phone lookup...")
         query = f"Phone number: {normalized}"
         query_vector = model.encode(query).astype("float32").tolist()
 
@@ -80,6 +81,7 @@ def get_candidate_by_phone(raw_phone: str) -> dict:
 
     else:
         # ----- Postgres-based lookup -----
+        print("Using Postgres for phone lookup...")
         try:
             conn = psycopg2.connect(
                 host=PG_HOST,

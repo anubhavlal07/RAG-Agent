@@ -2,17 +2,18 @@ import os
 import time
 import json
 import requests
-import numpy as np
 from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_URL = "http://127.0.0.1:8000/api/parse/"
 RESUME_FOLDER = "resumes"
-USE_PINECONE = os.getenv("USE_PINECONE")
-
-# Pinecone config vars (will only be used if USE_PINECONE=True)
+USE_PINECONE = os.getenv("USE_PINECONE", "true").lower() == "true"
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "resumes-index")
+
 
 def _sanitize_metadata(value):
     if isinstance(value, (str, int, float, bool)):
@@ -23,6 +24,7 @@ def _sanitize_metadata(value):
         return json.dumps(value)
     except Exception:
         return str(value)
+
 
 def generate_resume_text(data):
     parts = [
@@ -39,6 +41,7 @@ def generate_resume_text(data):
         parts.append(f"Project: {project.get('title', '')} - {project.get('description', '')}")
     return "\n".join(parts)
 
+
 def upload_resume_and_get_data(api_url, resume_path):
     try:
         with open(resume_path, 'rb') as f:
@@ -50,33 +53,44 @@ def upload_resume_and_get_data(api_url, resume_path):
         print(f"❌ Error parsing {resume_path}: {e}")
         return None
 
-class PineconeIngestor:
-    def __init__(self, api_key, index_name):
+
+def initialize_pinecone():
+    if not USE_PINECONE:
+        return None
+
+    if not PINECONE_API_KEY:
+        print("🚫 Pinecone API key not provided. Skipping Pinecone usage.")
+        return None
+
+    try:
         from pinecone import Pinecone, ServerlessSpec
+        pc = Pinecone(api_key=PINECONE_API_KEY)
 
-        self.pc = Pinecone(api_key=api_key)
-        self.index_name = index_name
-
-        if self.index_name not in self.pc.list_indexes().names():
-            print(f"Creating Pinecone index: {self.index_name}")
-            self.pc.create_index(
-                name=self.index_name,
+        if PINECONE_INDEX_NAME not in pc.list_indexes().names():
+            print(f"📦 Creating Pinecone index: {PINECONE_INDEX_NAME}")
+            pc.create_index(
+                name=PINECONE_INDEX_NAME,
                 dimension=384,
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region="us-east-1")
             )
             time.sleep(60)
         else:
-            print(f"Using existing Pinecone index: {self.index_name}")
+            print(f"✅ Using existing Pinecone index: {PINECONE_INDEX_NAME}")
 
-        self.index = self.pc.Index(self.index_name)
+        return pc.Index(PINECONE_INDEX_NAME)
+    except Exception as e:
+        print(f"❌ Failed to initialize Pinecone: {e}")
+        return None
 
-    def embed_and_upsert(self, model, candidate_id, candidate_data):
+
+def embed_and_upsert(index, model, candidate_id, candidate_data):
+    try:
         phone_number = candidate_data.get("phone", "")
         resume_text = candidate_data.get("resume_text", "") or generate_resume_text(candidate_data)
 
         chunk_size = 1000
-        chunks = [resume_text[i:i+chunk_size] for i in range(0, len(resume_text), chunk_size)] or [resume_text]
+        chunks = [resume_text[i:i + chunk_size] for i in range(0, len(resume_text), chunk_size)] or [resume_text]
         base_metadata = {k: _sanitize_metadata(v) for k, v in candidate_data.items()}
 
         vectors = []
@@ -103,7 +117,8 @@ class PineconeIngestor:
             "candidate_id": candidate_id,
             "chunk_id": "-1",
             "text": phone_text,
-            "is_phone_entry": "true"
+            "is_phone_entry": "true",
+            "phone": phone_number  # ✅ This is essential
         }
         phone_metadata.update(base_metadata)
         vectors.append({
@@ -112,16 +127,16 @@ class PineconeIngestor:
             "metadata": phone_metadata
         })
 
-        # Upsert in batches
         batch_size = 100
         for start in range(0, len(vectors), batch_size):
-            batch = vectors[start:start+batch_size]
-            try:
-                self.index.upsert(vectors=batch)
-            except Exception as e:
-                print(f"❌ Error upserting to Pinecone: {e}")
-                return False
+            batch = vectors[start:start + batch_size]
+            index.upsert(vectors=batch)
+
         return True
+    except Exception as e:
+        print(f"❌ Error during embedding/upsert: {e}")
+        return False
+
 
 def ingest_all_resumes(folder_path, api_url):
     if not os.path.exists(folder_path):
@@ -131,13 +146,7 @@ def ingest_all_resumes(folder_path, api_url):
         return
 
     model = SentenceTransformer('all-MiniLM-L6-v2')
-
-    pinecone_ingestor = None
-    if USE_PINECONE:
-        print("🔗 Pinecone enabled. Initializing...")
-        pinecone_ingestor = PineconeIngestor(PINECONE_API_KEY, PINECONE_INDEX_NAME)
-    else:
-        print("🚫 Pinecone disabled. Will only parse resumes.")
+    pinecone_index = initialize_pinecone()
 
     resume_files = [
         f for f in os.listdir(folder_path)
@@ -157,8 +166,8 @@ def ingest_all_resumes(folder_path, api_url):
 
         if parsed_data:
             candidate_id = f"candidate_{int(time.time())}_{i+1}"
-            if USE_PINECONE:
-                ok = pinecone_ingestor.embed_and_upsert(model, candidate_id, parsed_data)
+            if pinecone_index:
+                ok = embed_and_upsert(pinecone_index, model, candidate_id, parsed_data)
                 if ok:
                     success_count += 1
                 else:
@@ -170,6 +179,7 @@ def ingest_all_resumes(folder_path, api_url):
             print(f"❌ Failed to parse {resume_file}")
 
     print(f"\n🎉 Done. Processed {success_count}/{len(resume_files)} resume(s).")
+
 
 if __name__ == "__main__":
     ingest_all_resumes(RESUME_FOLDER, API_URL)
