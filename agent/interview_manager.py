@@ -1,86 +1,127 @@
+import os
 import sys
 import json
-import datetime
+from time import time
+from datetime import datetime
 from dotenv import load_dotenv
-import os 
 
-from agent.general_agent import fetch_and_confirm_candidate, run_general_hr_interview, get_session_history as get_hr_history
+# Import the general and technical interview functions
+from agent.general_agent import run_general_hr_interview, get_session_history as get_hr_history
 from agent.technical_agent import interview_loop as run_technical_interview, get_session_history as get_tech_history
 
-# We need a helper to fetch the actual resume text from Pinecone
-from agent.data_loader import load_full_resume_text
+# Pinecone lookup
+from agent.data_loader import get_candidate_by_phone, load_full_resume_text
 
 load_dotenv()
 
+# ----------------------------------------------------------------
+# STEP 1: fetch_and_confirm_candidate
+# ----------------------------------------------------------------
+
+def fetch_and_confirm_candidate():
+    """
+    1. Prompt for a phone number.
+    2. Use get_candidate_by_phone() to retrieve metadata.
+    3. Display key fields and ask for confirmation.
+       If “no,” loop again. If “yes,” return (phone_number, metadata_dict).
+    """
+    print("\n===== Candidate Lookup =====\n")
+    while True:
+        phone = input("Please enter your phone number (digits only or formatted): ").strip()
+        if not phone:
+            continue
+
+        digits = "".join(filter(str.isdigit, phone))
+        if len(digits) < 10:
+            print("❗ We need at least 10 digits to look up your record. Please try again.")
+            continue
+
+        metadata = get_candidate_by_phone(digits)
+        if not metadata:
+            print(f"❗ No candidate found for phone number: {digits}. Try again or type 'exit'.")
+            if phone.lower() in ["exit", "quit"]:
+                sys.exit(0)
+            continue
+
+        print("\nWe found the following information for you:\n")
+        display_fields = {
+            "Name": metadata.get("name"),
+            "Email": metadata.get("email", "<not provided>"),
+            "Education": metadata.get("education", "<not provided>"),
+            "Skills": ", ".join(metadata.get("skills", [])) if metadata.get("skills") else "<not provided>",
+            "Experience (years)": metadata.get("experience_years", "<not provided>"),
+            "Current Role": metadata.get("current_role", "<not provided>")
+        }
+        for label, val in display_fields.items():
+            print(f"  • {label}: {val}")
+        print()
+
+        confirm = input("Is this information correct? (yes/no): ").strip().lower()
+        if confirm in ["yes", "y"]:
+            return digits, metadata
+        elif confirm in ["no", "n"]:
+            print("Okay, let's try again.\n")
+            continue
+
+# ----------------------------------------------------------------
+# MAIN FLOW
+# ----------------------------------------------------------------
+
 def main():
-    """
-    1. Fetch + confirm candidate from Pinecone → (phone, metadata).
-    2. Run general HR agent → hr_session_id.
-    3. Fetch and format general history into a list of dicts.
-    4. Load full resume text via load_full_resume_text(phone).
-    5. Run technical agent with (resume_text, general_history) → tech_session_id.
-    6. Fetch and format technical history—BUT skip the first N seeded messages.
-    7. Combine both lists and save a single JSON named {Name}-{Phone}.json.
-    """
-    # Folder containing all resumes to ingest
-    CONVERSATION_FOLDER = os.path.join("agent", "conversations")
-
     try:
-        # Ensure the conversation folder exists
-        os.makedirs(CONVERSATION_FOLDER, exist_ok=True)
-
-        # STEP 1: Lookup & confirm
+        # STEP 1: Lookup & confirm candidate
         phone_number, metadata = fetch_and_confirm_candidate()
-        candidate_name = metadata.get("name", "Unknown").replace(" ", "_")
+        candidate_name = metadata.get("name", "Candidate").replace(" ", "_")
 
-        # STEP 2: Run the general HR portion → hr_session_id
+        # STEP 2: Run general HR interview
         hr_session_id = run_general_hr_interview(phone_number, metadata)
 
-        # STEP 3: Retrieve general history messages
+        # If candidate declined or exit during general HR, hr_session_id is None
+        if hr_session_id is None:
+            print("Interview ended during general HR. Goodbye!")
+            sys.exit(0)
+
+        # STEP 3: Extract general history
         hr_msgs = get_hr_history(hr_session_id).messages
         general_history = []
         for msg in hr_msgs:
             general_history.append({
-                "speaker": msg.type,      # e.g. "system" / "human" / "ai"
-                "text": msg.content,
-                "timestamp": datetime.datetime.now().isoformat()
-            })
-
-        # STEP 4: Fetch the candidate's full resume text
-        resume_text = load_full_resume_text(phone_number)
-        if not resume_text:
-            print("❗ Error: could not fetch the full resume text. Technical interview cannot proceed.")
-            sys.exit(1)
-
-        # STEP 5: Run the technical agent, passing resume_text + general_history → tech_session_id
-        tech_session_id = run_technical_interview(resume_text, general_history)
-
-        # STEP 6: Retrieve technical history messages
-        tech_msgs = get_tech_history(tech_session_id).messages
-
-        # We seeded the first len(general_history) messages in the technical history,
-        # so skip exactly that many to avoid duplication.
-        num_seeded = len(general_history)
-        tech_only = tech_msgs[num_seeded:]
-
-        technical_history = []
-        for msg in tech_only:
-            technical_history.append({
                 "speaker": msg.type,
                 "text": msg.content,
-                "timestamp": datetime.datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat()
             })
 
-        # STEP 7: Combine and save both general + technical in a single JSON
+        # STEP 4: Load full resume text from Pinecone
+        resume_text = load_full_resume_text(phone_number)
+        if not resume_text:
+            print("❗ Could not retrieve full resume. Skipping technical interview.")
+            technical_history = []
+        else:
+            # STEP 5: Run technical interview (seed with general_history)
+            tech_session_id = run_technical_interview(resume_text, general_history)
+
+            # STEP 6: Extract technical history, skipping the seeded general messages
+            tech_msgs = get_tech_history(tech_session_id).messages
+            tech_only = tech_msgs[len(general_history):]
+            technical_history = []
+            for msg in tech_only:
+                technical_history.append({
+                    "speaker": msg.type,
+                    "text": msg.content,
+                    "timestamp": datetime.now().isoformat()
+                })
+
+        # STEP 7: Combine and save all in one JSON under agent/conversation/
         combined = general_history + technical_history
-        
-        # Construct the full path to the file within the conversation folder
-        filename = os.path.join(CONVERSATION_FOLDER, f"{candidate_name}-{phone_number}.json")
-        
-        with open(filename, "w", encoding="utf-8") as f:
+        out_dir = os.path.join("agent", "conversations")
+        os.makedirs(out_dir, exist_ok=True)
+
+        filename = f"{candidate_name}-{phone_number}.json"
+        filepath = os.path.join(out_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(combined, f, indent=2)
 
-        print(f"\n✅ Entire interview saved to {filename}")
+        print(f"\n✅ Interview saved to {filepath}")
 
     except KeyboardInterrupt:
         print("\nInterview interrupted. Exiting.")
