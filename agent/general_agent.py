@@ -17,7 +17,7 @@ load_dotenv()
 
 COMPANY_NAME = "Tech Innovators Inc."
 INTERVIEWER_NAME = "Sophia"
-MAX_GENERAL_QUESTIONS = 10
+MAX_GENERAL_QUESTIONS = 15
 
 JOB_ROLE = "Software Development Engineer"
 EXPERIENCE_YEARS_REQUIRED = 2
@@ -55,9 +55,9 @@ Use the candidate's resume details below to ask recruiter-style questions one at
 
 Flow:
 - Ask “Am I speaking with {candidate_name}?” to confirm you have the right person. If they provide a different name, ask for clarification.
-- Greet them and introduce yourself: "Hi {candidate_name}, I'm {name} from {company}."
-- Ask if they have a few minutes to talk. If not, say “No worries—thank you for your time. Goodbye.” and end.
-- Ask if they're actively looking for new roles or open to a career change. If they deny say “Thank you for letting me know—have a great day.” and end.
+- Greet them and introduce yourself: "Hi {candidate_name}, I'm {name} from {company}."and ask if they have a few minutes to talk. If not, say “No worries—thank you for your time. Goodbye.” and end.
+- From this point, **do not re-introduce yourself or your company.**
+- Ask if they're actively looking for new roles or open to a career change. If they deny, say “Thank you for letting me know—have a great day.” and end.
 - Ask if they’re a fresher, currently studying, or experienced.
 - Introduce the job: "{job_role}" (requires ~{experience_years_required} years in {experience_area}).
 - Confirm if this matches their background and interests and if they are interested. If they say “no,” say “Thanks for your time.” and end.
@@ -75,7 +75,7 @@ Flow:
 - Ask their salary expectations: “What are your salary expectations for this role?”
 - Ask if they have any questions for you about the role or company.
 - If they ask questions, answer them briefly and positively.
-- After {max_questions} questions (count only questions ending with “?”), say “GENERAL INTERVIEW COMPLETE.”
+- After {max_questions} questions (count only questions ending with “?”) if required for any other details you can ask 4 to 5 more questions, say “GENERAL INTERVIEW COMPLETE.”
 
 Analyze their responses to assess and ask relevant follow-up questions. Always be polite, professional, and concise.
 Questions should be open-ended to encourage discussion, but also specific enough to gather useful information.
@@ -130,7 +130,6 @@ def run_general_hr_interview(phone: str, metadata: dict) -> str:
     questions_asked = 0
     while True:
         if questions_asked == 0:
-            # First turn: no user input yet
             ai_response = runnable.invoke(
                 {
                     "company": COMPANY_NAME,
@@ -152,7 +151,7 @@ def run_general_hr_interview(phone: str, metadata: dict) -> str:
 
             # If candidate explicitly declines or isn’t looking:
             if any(neg in user_input.lower() for neg in ["no", "not", "busy", "exit", "quit"]):
-                print("AI: Thank you for your time. Goodbye!")
+                print("AI: Thank you for your time.")
                 return None  # Signal early exit
 
             history.add_message(HumanMessage(content=user_input))
@@ -186,6 +185,5 @@ def run_general_hr_interview(phone: str, metadata: dict) -> str:
                 print("AI: GENERAL INTERVIEW COMPLETE.")
                 history.add_message(AIMessage(content="GENERAL INTERVIEW COMPLETE."))
                 return session_id
-
-    # If somehow we exit loop unexpectedly, return None
+    # Should never reach here
     return None
