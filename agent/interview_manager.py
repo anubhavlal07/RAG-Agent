@@ -75,12 +75,7 @@ def main():
 
         # STEP 2: Run general HR interview
         hr_session_id = run_general_hr_interview(phone_number, metadata)
-
-        # If candidate declined or exit during general HR, hr_session_id is None
-        if hr_session_id is None:
-            print("Interview ended during general HR. Goodbye!")
-            sys.exit(0)
-
+        
         # STEP 3: Extract general history
         hr_msgs = get_hr_history(hr_session_id).messages
         general_history = []
