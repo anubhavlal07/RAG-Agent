@@ -243,12 +243,15 @@ def run_general_hr_interview(phone: str, metadata: dict) -> str:
             return session_id
 
         # Only count if AI’s last line ends with “?”
+
         if ai_text.endswith("?"):
             questions_asked += 1
 
-            
-            history.add_message(AIMessage(content="GENERAL INTERVIEW COMPLETE."))
-            return session_id
+            # End after a certain number of questions, e.g., 5
+            if questions_asked > 10:
+                history.add_message(AIMessage(content="GENERAL INTERVIEW COMPLETE."))
+                return session_id
+        
         
     # Should never reach here
     # If somehow we exit loop unexpectedly, return None
