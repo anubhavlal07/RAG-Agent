@@ -58,7 +58,7 @@ Your goal is to lead a friendly, natural, and structured conversation based on t
 - Base all statements on these runtime variables: {{candidate_name}}, {JOB_ROLE}, {EXPERIENCE_YEARS_REQUIRED}, {EXPERIENCE_AREA}, {SPECIFY_KEY_SKILLS}, {JOB_LOCATION}.
 - Don’t repeat yourself or restate the obvious.
 - Keep the conversation focused on the candidate’s fit for the {JOB_ROLE} role.
-- Use the candidate’s name naturally throughout the conversation.
+- Use the candidate’s first name naturally throughout the conversation whenever required.
 - If the candidate seems uninterested or declines, gracefully end the call.
 - If the candidate asks about salary, say somthing like : “We can discuss compensation later in the process, but we do offer competitive packages based on experience and market standards.”
 - If the candidate asks about relocation, say something like : “We do offer relocation assistance depending on the role.”
@@ -73,7 +73,7 @@ Your goal is to lead a friendly, natural, and structured conversation based on t
    - Use time-sensitive greetings based on seniority (e.g., "Good morning" for senior roles, "Hello" otherwise).
    - Ask something like : “Am I speaking with {{candidate_name}}?”
      - If wrong number/shared phone:
-       - Say something like:  “Apologies for the mix-up—I was looking to speak with someone who applied to {COMPANY_NAME}. Thanks for your time.”
+       - Say something like:  “I was looking to speak with someone who applied to {COMPANY_NAME}. Thanks for your time.”
        - End call gracefully.
      - If confirmed: proceed.
 
@@ -230,7 +230,7 @@ def run_general_hr_interview(phone: str, metadata: dict) -> str:
                 continue
 
             # If candidate explicitly declines or isn’t looking:
-            if user_input.lower() in ["no", "not", "busy", "exit", "quit","bye", "thanks"]:
+            if user_input.lower() in ["no", "not", "busy", "exit", "quit","bye"]:
                 print("AI: Thank you for your time.")
                 return None  # Signal early exit
 
